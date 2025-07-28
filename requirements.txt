@@ -2,4 +2,6 @@ flask
 chromadb
 openai
 gunicorn
+sentence-transformers
+
 
