@@ -8,7 +8,7 @@ from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 app = Flask(__name__)
 
 # Setup ChromaDB client with OpenAI Embeddings
-embedding_function = OpenAIEmbeddingFunction(api_key=os.environ.get("OPENAI_API_KEY"))
+embedding_function = OpenAIEmbeddingFunction(api_key=os.environ.get("CHROMA_OPENAI_API_KEY"))
 client = chromadb.Client(Settings(allow_reset=True))
 collection = client.get_or_create_collection("transcripts", embedding_function=embedding_function)
 
@@ -72,9 +72,12 @@ def query_transcripts():
             "query": query_text
         }), 200
 
+    except MemoryError:
+        return jsonify({"error": "Out of memory during query"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
+    print(f"🚀 App running on port {port}")
     app.run(host="0.0.0.0", port=port)
