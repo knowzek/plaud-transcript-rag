@@ -2,11 +2,18 @@ from flask import Flask, request, jsonify
 import chromadb
 import os
 from typing import List
+from chromadb.config import Settings
+from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
 
 app = Flask(__name__)
 
 # Initialize Chroma
-client = chromadb.Client()
+
+embedding_function = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
+
+client = chromadb.Client(Settings(allow_reset=True))
+collection = client.get_or_create_collection("transcripts", embedding_function=embedding_function)
+
 collection = client.get_or_create_collection("transcripts")
 
 # Chunker
