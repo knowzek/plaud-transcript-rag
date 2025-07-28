@@ -3,20 +3,16 @@ import chromadb
 import os
 from typing import List
 from chromadb.config import Settings
-from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunction
+from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
 
 app = Flask(__name__)
 
-# Initialize Chroma
-
-embedding_function = SentenceTransformerEmbeddingFunction(model_name="all-MiniLM-L6-v2")
-
+# Setup ChromaDB client with OpenAI Embeddings
+embedding_function = OpenAIEmbeddingFunction(api_key=os.environ.get("OPENAI_API_KEY"))
 client = chromadb.Client(Settings(allow_reset=True))
 collection = client.get_or_create_collection("transcripts", embedding_function=embedding_function)
 
-collection = client.get_or_create_collection("transcripts")
-
-# Chunker
+# Chunking function
 def chunk_transcript(text: str, max_chars: int = 500) -> List[str]:
     lines = text.split('\n')
     chunks = []
@@ -31,7 +27,6 @@ def chunk_transcript(text: str, max_chars: int = 500) -> List[str]:
         chunks.append(current_chunk.strip())
     return chunks
 
-# Webhook to receive from Zapier
 @app.route("/ingest", methods=["POST"])
 def ingest_transcript():
     data = request.get_json()
@@ -83,4 +78,3 @@ def query_transcripts():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     app.run(host="0.0.0.0", port=port)
-
