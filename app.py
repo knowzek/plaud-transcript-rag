@@ -11,7 +11,7 @@ app = Flask(__name__)
 embedding_function = OpenAIEmbeddingFunction(api_key=os.environ.get("CHROMA_OPENAI_API_KEY"))
 client = chromadb.Client(Settings(
     allow_reset=True,
-    persist_directory="/tmp/chroma"
+    persist_directory="/data/chroma"
 ))
 
 collection = client.get_or_create_collection("transcripts", embedding_function=embedding_function)
