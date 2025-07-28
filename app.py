@@ -9,7 +9,11 @@ app = Flask(__name__)
 
 # Setup ChromaDB client with OpenAI Embeddings
 embedding_function = OpenAIEmbeddingFunction(api_key=os.environ.get("CHROMA_OPENAI_API_KEY"))
-client = chromadb.Client(Settings(allow_reset=True))
+client = chromadb.Client(Settings(
+    allow_reset=True,
+    persist_directory="/tmp/chroma"
+))
+
 collection = client.get_or_create_collection("transcripts", embedding_function=embedding_function)
 
 # Chunking function
