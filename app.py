@@ -53,5 +53,32 @@ def ingest_transcript():
 
     return jsonify({"status": "ingested", "chunks": len(chunks)}), 200
 
+@app.route("/query", methods=["POST"])
+def query_transcripts():
+    try:
+        data = request.get_json(force=True)
+        query_text = data.get("query", "").strip()
+        top_k = int(data.get("top_k", 3))
+
+        if not query_text:
+            return jsonify({"error": "Missing query"}), 400
+
+        results = collection.query(
+            query_texts=[query_text],
+            n_results=top_k
+        )
+
+        chunks = results.get("documents", [[]])[0]
+        sources = results.get("metadatas", [[]])[0]
+
+        return jsonify({
+            "chunks": chunks,
+            "sources": sources,
+            "query": query_text
+        }), 200
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
 if __name__ == "__main__":
     app.run(debug=True)
