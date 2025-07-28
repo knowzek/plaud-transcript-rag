@@ -43,12 +43,22 @@ def ingest_transcript():
     chunks = chunk_transcript(transcript_text)
 
     for i, chunk in enumerate(chunks):
+        chunk = chunk.strip()
+        if not chunk or len(chunk) < 10:
+            print(f"⏭️ Skipping chunk {i} (too short or empty)")
+            continue
+    
         doc_id = f"{title}-{i}"
-        collection.add(
-            documents=[chunk],
-            metadatas=[{"source": title}],
-            ids=[doc_id]
-        )
+        try:
+            collection.add(
+                documents=[chunk],
+                metadatas=[{"source": title}],
+                ids=[doc_id]
+            )
+            print(f"✅ Ingested: {doc_id}")
+        except Exception as e:
+            print(f"❌ Failed on {doc_id}: {e}")
+
 
     return jsonify({"status": "ingested", "chunks": len(chunks)}), 200
 
