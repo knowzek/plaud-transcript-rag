@@ -7,17 +7,21 @@ import uuid
 
 app = Flask(__name__)
 
-# === ENV VARS ===
+from pinecone import Pinecone, ServerlessSpec
+
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
-PINECONE_ENV = os.environ.get("PINECONE_ENVIRONMENT")  # e.g. "us-east-1-aws"
-PINECONE_INDEX = os.environ.get("PINECONE_INDEX_NAME", "transcripts")
+PINECONE_ENV = os.environ.get("PINECONE_ENVIRONMENT")
+PINECONE_INDEX = os.environ.get("PINECONE_INDEX_NAME", "transcripts-esteban")
+
+# Create Pinecone client
+pc = Pinecone(api_key=PINECONE_API_KEY)
+
+# Connect to the index (already created)
+index = pc.Index(PINECONE_INDEX)
+
 
 OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
 openai.api_key = OPENAI_API_KEY
-
-# === INIT PINECONE ===
-pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
-index = pinecone.Index(PINECONE_INDEX)
 
 # === UTILS ===
 
