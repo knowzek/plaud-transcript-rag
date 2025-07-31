@@ -1,22 +1,26 @@
 from flask import Flask, request, jsonify
-import chromadb
 import os
+import openai
+import pinecone
 from typing import List
-from chromadb.config import Settings
-from chromadb.utils.embedding_functions import OpenAIEmbeddingFunction
+import uuid
 
 app = Flask(__name__)
 
-# Setup ChromaDB client with OpenAI Embeddings
-embedding_function = OpenAIEmbeddingFunction(api_key=os.environ.get("CHROMA_OPENAI_API_KEY"))
-client = chromadb.Client(Settings(
-    allow_reset=True,
-    persist_directory="/data/chroma"
-))
+# === ENV VARS ===
+PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
+PINECONE_ENV = os.environ.get("PINECONE_ENVIRONMENT")  # e.g. "us-east-1-aws"
+PINECONE_INDEX = os.environ.get("PINECONE_INDEX_NAME", "transcripts")
 
-collection = client.get_or_create_collection("transcripts", embedding_function=embedding_function)
+OPENAI_API_KEY = os.environ.get("OPENAI_API_KEY")
+openai.api_key = OPENAI_API_KEY
 
-# Chunking function
+# === INIT PINECONE ===
+pinecone.init(api_key=PINECONE_API_KEY, environment=PINECONE_ENV)
+index = pinecone.Index(PINECONE_INDEX)
+
+# === UTILS ===
+
 def chunk_transcript(text: str, max_chars: int = 500) -> List[str]:
     lines = text.split('\n')
     chunks = []
@@ -31,54 +35,69 @@ def chunk_transcript(text: str, max_chars: int = 500) -> List[str]:
         chunks.append(current_chunk.strip())
     return chunks
 
+def embed_texts(texts: List[str]) -> List[List[float]]:
+    response = openai.embeddings.create(
+        model="text-embedding-3-small",
+        input=texts
+    )
+    return [e.embedding for e in response.data]
+
+# === ENDPOINTS ===
+
 @app.route("/ingest", methods=["POST"])
-def ingest_transcript():
+def ingest():
     data = request.get_json()
-    transcript_text = data.get("transcript", "")
+    transcript = data.get("transcript", "")
     title = data.get("title", "Untitled")
 
-    if not transcript_text:
+    if not transcript:
         return jsonify({"error": "Missing transcript"}), 400
 
-    chunks = chunk_transcript(transcript_text)
+    chunks = chunk_transcript(transcript)
+    texts_to_embed = [chunk for chunk in chunks if len(chunk) > 10]
 
-    for i, chunk in enumerate(chunks):
-        chunk = chunk.strip()
-        if not chunk or len(chunk) < 10:
-            print(f"⏭️ Skipping chunk {i} (too short or empty)")
-            continue
-    
-        doc_id = f"{title}-{i}"
-        try:
-            collection.add(
-                documents=[chunk],
-                metadatas=[{"source": title}],
-                ids=[doc_id]
-            )
-            print(f"✅ Ingested: {doc_id}")
-        except Exception as e:
-            print(f"❌ Failed on {doc_id}: {e}")
+    if not texts_to_embed:
+        return jsonify({"error": "Transcript too short to chunk"}), 400
 
+    embeddings = embed_texts(texts_to_embed)
 
-    return jsonify({"status": "ingested", "chunks": len(chunks)}), 200
+    to_upsert = []
+    for i, (chunk, vector) in enumerate(zip(texts_to_embed, embeddings)):
+        to_upsert.append((
+            f"{title}-{uuid.uuid4().hex[:8]}",  # unique ID
+            vector,
+            {"text": chunk, "source": title}
+        ))
+
+    try:
+        index.upsert(vectors=to_upsert)
+        print(f"✅ Ingested {len(to_upsert)} chunks")
+        return jsonify({"status": "ingested", "chunks": len(to_upsert)}), 200
+    except Exception as e:
+        print(f"❌ Pinecone error: {e}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route("/query", methods=["POST"])
-def query_transcripts():
+def query():
+    data = request.get_json()
+    query_text = data.get("query", "").strip()
+    top_k = int(data.get("top_k", 3))
+
+    if not query_text:
+        return jsonify({"error": "Missing query"}), 400
+
     try:
-        data = request.get_json(force=True)
-        query_text = data.get("query", "").strip()
-        top_k = int(data.get("top_k", 3))
+        embedding = embed_texts([query_text])[0]
 
-        if not query_text:
-            return jsonify({"error": "Missing query"}), 400
-
-        results = collection.query(
-            query_texts=[query_text],
-            n_results=top_k
+        response = index.query(
+            vector=embedding,
+            top_k=top_k,
+            include_metadata=True
         )
 
-        chunks = results.get("documents", [[]])[0]
-        sources = results.get("metadatas", [[]])[0]
+        results = response.get("matches", [])
+        chunks = [match["metadata"]["text"] for match in results]
+        sources = [match["metadata"].get("source", "") for match in results]
 
         return jsonify({
             "chunks": chunks,
@@ -86,11 +105,10 @@ def query_transcripts():
             "query": query_text
         }), 200
 
-    except MemoryError:
-        return jsonify({"error": "Out of memory during query"}), 500
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# === SERVER ===
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 10000))
     print(f"🚀 App running on port {port}")
