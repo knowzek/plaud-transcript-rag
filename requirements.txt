@@ -1,7 +1,7 @@
 flask
 openai
 gunicorn
-pinecone-client
+pinecone
 
 
 
