@@ -1,6 +1,7 @@
 flask
-chromadb
 openai
 gunicorn
+pinecone-client
+
 
 
