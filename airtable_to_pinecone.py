@@ -1,23 +1,21 @@
 import requests
-
 import re
+import time
 
 def clean_srt(text):
     if not text or len(text) < 10:
         return ""
-    # Remove SRT timestamps and numbering
     lines = text.splitlines()
     cleaned = []
     for line in lines:
         if re.match(r"^\d+\s*$", line):  # line number
             continue
-        if "-->" in line:  # timestamp line
+        if "-->" in line:  # timestamp
             continue
         if line.strip() == "":
             continue
         cleaned.append(line.strip())
     return " ".join(cleaned)
-
 
 # === UPDATE THESE VALUES ===
 AIRTABLE_PAT = "pathT6pkSO8Fp0QFA.8ee10bf975e086124921f97b80f4c6f0758959d77ca4c73adcdbcb0cc4f79eb3"
@@ -51,17 +49,25 @@ for r in all_records:
     fields = r["fields"]
     raw_transcript = fields.get("Transcript")
     transcript = clean_srt(raw_transcript)
-
     title = fields.get("Title") or "Untitled"
 
     if not transcript or len(transcript.strip()) < 10:
         print(f"⏭️ Skipping {title} (empty transcript)")
         continue
 
-    res = requests.post(FLASK_ENDPOINT, json={
-        "transcript": transcript,
-        "title": title
-    })
-
-    status = "✅" if res.status_code == 200 else f"❌ {res.status_code}"
-    print(f"{status} → {title}")
+    for attempt in range(3):
+        try:
+            res = requests.post(
+                FLASK_ENDPOINT,
+                json={"transcript": transcript, "title": title},
+                timeout=10
+            )
+            status = "✅" if res.status_code == 200 else f"❌ {res.status_code}"
+            print(f"{status} → {title}")
+            break
+        except requests.exceptions.ReadTimeout:
+            print(f"⏱️ Timeout on {title} (attempt {attempt+1})")
+            time.sleep(5)
+        except Exception as e:
+            print(f"❌ Failed on {title}: {e}")
+            break
