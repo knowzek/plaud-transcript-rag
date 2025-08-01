@@ -23,7 +23,7 @@ def clean_srt(text):
 AIRTABLE_PAT = "pathT6pkSO8Fp0QFA.8ee10bf975e086124921f97b80f4c6f0758959d77ca4c73adcdbcb0cc4f79eb3"
 BASE_ID = "app2bEfoCTnwLiBn9"
 TABLE_NAME = "Table%201"  # URL-encoded space
-FLASK_ENDPOINT = "https://plaud-transcript-rag.onrender.com"
+FLASK_ENDPOINT = "https://plaud-transcript-rag.onrender.com/ingest"
 
 headers = {
     "Authorization": f"Bearer {AIRTABLE_PAT}",
