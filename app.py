@@ -81,19 +81,24 @@ def ingest():
     if not transcript:
         return jsonify({"error": "Missing transcript"}), 400
 
+    # 🔒 Cap input at ~8000 tokens (approx 28k chars)
+    if len(transcript) > 28000:
+        transcript = transcript[:28000]
+
     chunks = chunk_transcript_by_tokens(transcript)
 
     texts_to_embed = [chunk for chunk in chunks if len(chunk) > 10]
 
     if not texts_to_embed:
         return jsonify({"error": "Transcript too short to chunk"}), 400
+    print(f"📄 Ingesting: {title} → {len(texts_to_embed)} chunks")
 
     embeddings = embed_texts(texts_to_embed)
 
     to_upsert = []
     for i, (chunk, vector) in enumerate(zip(texts_to_embed, embeddings)):
         to_upsert.append((
-            f"{title}-{uuid.uuid4().hex[:8]}",  # unique ID
+            f"{title}-{uuid.uuid4().hex[:8]}",
             vector,
             {"text": chunk, "source": title}
         ))
@@ -105,6 +110,7 @@ def ingest():
     except Exception as e:
         print(f"❌ Pinecone error: {e}")
         return jsonify({"error": str(e)}), 500
+
 
 @app.route("/query", methods=["POST"])
 def query():
