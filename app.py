@@ -54,11 +54,21 @@ def chunk_transcript_by_tokens(text: str, max_tokens: int = 800) -> List[str]:
 
 
 def embed_texts(texts: List[str]) -> List[List[float]]:
+    enc = tiktoken.encoding_for_model("text-embedding-3-small")
+    trimmed = []
+    for t in texts:
+        tokens = enc.encode(t)
+        if len(tokens) > 8000:
+            tokens = tokens[:8000]
+            t = enc.decode(tokens)
+        trimmed.append(t)
+
     response = openai.embeddings.create(
         model="text-embedding-3-small",
-        input=texts
+        input=trimmed
     )
     return [e.embedding for e in response.data]
+
 
 # === ENDPOINTS ===
 
