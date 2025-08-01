@@ -71,7 +71,7 @@ def ingest():
     if not transcript:
         return jsonify({"error": "Missing transcript"}), 400
 
-    chunks = chunk_transcript_by_tokens(transcript_text)
+    chunks = chunk_transcript_by_tokens(transcript)
 
     texts_to_embed = [chunk for chunk in chunks if len(chunk) > 10]
 
