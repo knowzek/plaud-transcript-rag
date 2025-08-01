@@ -4,6 +4,7 @@ import openai
 import pinecone
 from typing import List
 import uuid
+import tiktoken
 
 app = Flask(__name__)
 
@@ -25,19 +26,32 @@ openai.api_key = OPENAI_API_KEY
 
 # === UTILS ===
 
-def chunk_transcript(text: str, max_chars: int = 500) -> List[str]:
-    lines = text.split('\n')
+import tiktoken
+
+def chunk_transcript_by_tokens(text: str, max_tokens: int = 800) -> List[str]:
+    enc = tiktoken.encoding_for_model("text-embedding-ada-002")
+    words = text.split()
     chunks = []
-    current_chunk = ""
-    for line in lines:
-        if len(current_chunk) + len(line) < max_chars:
-            current_chunk += " " + line.strip()
+    current_chunk = []
+
+    current_tokens = 0
+    for word in words:
+        token_len = len(enc.encode(word + " "))
+        if current_tokens + token_len > max_tokens:
+            chunk = " ".join(current_chunk).strip()
+            if chunk:
+                chunks.append(chunk)
+            current_chunk = [word]
+            current_tokens = token_len
         else:
-            chunks.append(current_chunk.strip())
-            current_chunk = line.strip()
+            current_chunk.append(word)
+            current_tokens += token_len
+
     if current_chunk:
-        chunks.append(current_chunk.strip())
+        chunks.append(" ".join(current_chunk).strip())
+
     return chunks
+
 
 def embed_texts(texts: List[str]) -> List[List[float]]:
     response = openai.embeddings.create(
@@ -57,7 +71,8 @@ def ingest():
     if not transcript:
         return jsonify({"error": "Missing transcript"}), 400
 
-    chunks = chunk_transcript(transcript)
+    chunks = chunk_transcript_by_tokens(transcript_text)
+
     texts_to_embed = [chunk for chunk in chunks if len(chunk) > 10]
 
     if not texts_to_embed:
