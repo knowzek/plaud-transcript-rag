@@ -5,6 +5,7 @@ import pinecone
 from typing import List
 import uuid
 import tiktoken
+import re
 
 app = Flask(__name__)
 
@@ -26,7 +27,12 @@ openai.api_key = OPENAI_API_KEY
 
 # === UTILS ===
 
-import tiktoken
+def make_ascii_id(text):
+    # Replace non-ASCII characters with safe fallback
+    ascii_text = text.encode("ascii", "ignore").decode()
+    ascii_text = re.sub(r"[^\w\s-]", "", ascii_text)  # Remove any punctuation
+    ascii_text = ascii_text.replace(" ", "_")  # Replace spaces with underscores
+    return ascii_text
 
 def chunk_transcript_by_tokens(text: str, max_tokens: int = 800) -> List[str]:
     enc = tiktoken.encoding_for_model("text-embedding-ada-002")
@@ -97,8 +103,9 @@ def ingest():
 
     to_upsert = []
     for i, (chunk, vector) in enumerate(zip(texts_to_embed, embeddings)):
+        vector_id = f"{make_ascii_id(title)}-{uuid.uuid4().hex[:8]}"
         to_upsert.append((
-            f"{title}-{uuid.uuid4().hex[:8]}",
+            vector_id,
             vector,
             {"text": chunk, "source": title}
         ))
