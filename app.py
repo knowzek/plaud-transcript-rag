@@ -6,6 +6,7 @@ from typing import List
 import uuid
 import tiktoken
 import re
+import requests
 
 app = Flask(__name__)
 
