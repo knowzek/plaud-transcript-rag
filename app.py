@@ -129,6 +129,7 @@ def ingest():
 def query():
     data = request.get_json()
     query_text = data.get("query", "").strip()
+    user_id = data.get("user_id")
     top_k = int(data.get("top_k", 3))
 
     if not query_text:
@@ -139,10 +140,6 @@ def query():
     try:
         embedding = embed_texts([query_text])[0]
 
-        user_id = data.get("user_id")
-        if not user_id:
-            return jsonify({"error": "Missing user_id"}), 400
-        
         response = index.query(
             vector=embedding,
             top_k=top_k,
@@ -162,6 +159,7 @@ def query():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 # === SERVER ===
 if __name__ == "__main__":
