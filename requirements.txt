@@ -3,5 +3,6 @@ openai
 gunicorn
 pinecone
 tiktoken
+PyJWT>=2.0.0
 
 
