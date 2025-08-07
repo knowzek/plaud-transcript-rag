@@ -78,6 +78,36 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
 
 # === ENDPOINTS ===
 
+@app.route("/get_user_id", methods=["POST"])
+def get_user_id():
+    data = request.get_json()
+    email = data.get("email")
+    
+    if not email:
+        return jsonify({"error": "Missing email"}), 400
+
+    # Query Supabase
+    headers = {
+        "apikey": SUPABASE_SERVICE_KEY,
+        "Authorization": f"Bearer {SUPABASE_SERVICE_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    response = requests.get(
+        f"{SUPABASE_URL}/rest/v1/users?email=eq.{email}",
+        headers=headers
+    )
+
+    if response.status_code >= 400:
+        return jsonify({"error": "Failed to retrieve user"}), 500
+
+    users = response.json()
+    if not users:
+        return jsonify({"error": "User not found"}), 404
+
+    return jsonify({"user_id": users[0]["user_id"]}), 200
+
+
 @app.route("/delete_user_data", methods=["POST"])
 def delete_user_data():
     data = request.get_json()
