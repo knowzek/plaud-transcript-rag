@@ -83,20 +83,22 @@ def ingest():
     data = request.get_json()
     transcript = data.get("transcript", "")
     title = data.get("title", "Untitled")
-
+    user_id = data.get("user_id")
+    
     if not transcript:
         return jsonify({"error": "Missing transcript"}), 400
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
 
-    # 🔒 Cap input at ~8000 tokens (approx 28k chars)
+    # Cap size
     if len(transcript) > 28000:
         transcript = transcript[:28000]
 
     chunks = chunk_transcript_by_tokens(transcript)
-
     texts_to_embed = [chunk for chunk in chunks if len(chunk) > 10]
-
     if not texts_to_embed:
         return jsonify({"error": "Transcript too short to chunk"}), 400
+
     print(f"📄 Ingesting: {title} → {len(texts_to_embed)} chunks")
 
     embeddings = embed_texts(texts_to_embed)
@@ -107,7 +109,11 @@ def ingest():
         to_upsert.append((
             vector_id,
             vector,
-            {"text": chunk, "source": title}
+            {
+                "text": chunk,
+                "source": title,
+                "user_id": user_id  # ✅ attach user_id
+            }
         ))
 
     try:
@@ -127,14 +133,21 @@ def query():
 
     if not query_text:
         return jsonify({"error": "Missing query"}), 400
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
 
     try:
         embedding = embed_texts([query_text])[0]
 
+        user_id = data.get("user_id")
+        if not user_id:
+            return jsonify({"error": "Missing user_id"}), 400
+        
         response = index.query(
             vector=embedding,
             top_k=top_k,
-            include_metadata=True
+            include_metadata=True,
+            filter={"user_id": user_id}
         )
 
         results = response.get("matches", [])
