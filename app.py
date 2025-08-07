@@ -14,6 +14,9 @@ from pinecone import Pinecone, ServerlessSpec
 PINECONE_API_KEY = os.environ.get("PINECONE_API_KEY")
 PINECONE_ENV = os.environ.get("PINECONE_ENVIRONMENT")
 PINECONE_INDEX = os.environ.get("PINECONE_INDEX_NAME", "transcripts-esteban")
+SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
+SUPABASE_URL = os.environ.get("SUPABASE_URL")
+
 
 # Create Pinecone client
 pc = Pinecone(api_key=PINECONE_API_KEY)
