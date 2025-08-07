@@ -7,8 +7,11 @@ import uuid
 import tiktoken
 import re
 import requests
+import jwt
+from flask_cors import CORS
 
 app = Flask(__name__)
+CORS(app)
 
 from pinecone import Pinecone, ServerlessSpec
 
@@ -17,6 +20,7 @@ PINECONE_ENV = os.environ.get("PINECONE_ENVIRONMENT")
 PINECONE_INDEX = os.environ.get("PINECONE_INDEX_NAME", "transcripts-esteban")
 SUPABASE_SERVICE_KEY = os.environ.get("SUPABASE_SERVICE_KEY")
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
+SUPABASE_JWT_SECRET = os.environ.get("SUPABASE_JWT_SECRET")
 
 
 # Create Pinecone client
@@ -81,6 +85,26 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
 
 
 # === ENDPOINTS ===
+
+@app.route("/verify_token", methods=["POST"])
+def verify_token():
+    data = request.get_json()
+    token = data.get("token")
+
+    if not token:
+        return jsonify({"error": "Missing token"}), 400
+
+    try:
+        payload = jwt.decode(token, SUPABASE_JWT_SECRET, algorithms=["HS256"])
+        return jsonify({
+            "user_id": payload["sub"],
+            "email": payload.get("email", "")
+        }), 200
+    except jwt.ExpiredSignatureError:
+        return jsonify({"error": "Token expired"}), 401
+    except jwt.InvalidTokenError:
+        return jsonify({"error": "Invalid token"}), 403
+
 
 @app.route("/get_user_id", methods=["POST"])
 def get_user_id():
