@@ -78,6 +78,21 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
 
 # === ENDPOINTS ===
 
+@app.route("/delete_user_data", methods=["POST"])
+def delete_user_data():
+    data = request.get_json()
+    user_id = data.get("user_id")
+
+    if not user_id:
+        return jsonify({"error": "Missing user_id"}), 400
+
+    try:
+        index.delete(filter={"user_id": user_id})
+        return jsonify({"status": "deleted", "user_id": user_id}), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/ingest", methods=["POST"])
 def ingest():
     data = request.get_json()
